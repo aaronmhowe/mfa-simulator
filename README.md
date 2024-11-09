@@ -35,3 +35,9 @@ Simple UI-based application that simulates a login page that employs a multi-fac
         2. Type and enter `chmod +x run_code.sh` and enter your password if/when prompted.
         3. run_code.sh should now be executable. Type and enter `./run_code.sh` to run the shell script.
         4. Additionally: You yourself *might* have to edit the shell script, depending on where in your system your python interpreter is located. If you must, you'll be editing line 3.
+
+## Resources
+### Python's One-Time Password Library
+https://pyauth.github.io/pyotp/ 
+### Python's Testing Framework unittest
+https://docs.python.org/3/library/unittest.html

@@ -2,7 +2,10 @@ import unittest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 import sqlite3
-from src.totp_mfa import TOTPMFA, EmailCode, DatabaseServer
+import sqlite3
+import base64
+import re
+from src.totp_mfa import TOTPMFA, DatabaseServer
 
 
 class TOTPMFATests(unittest.TestCase):
@@ -10,169 +13,93 @@ class TOTPMFATests(unittest.TestCase):
     Test cases for the TOTPMFA class in totp_mfa.py
     """
 
-    def email(self):
+    def setUp(self):
         """
-        Initializes a test email.
+        Initializing the test environment.
         """
         self.mfa = TOTPMFA()
         self.test_email = "user@wsu.edu"
-
-    def code_length_is_six_ints(self):
-        """
-        Tests that the length of a verification code is 6 integers.
-        """
-        code = self.mfa.generate_code()
-        self.assertEqual(len(code), 6)
-
-    def code_is_unique(self):
-        """
-        Tests that a verification codes generate uniquely from one another.
-        """
-        generated_codes = [self.mfa.generate_code() for _ in range(5)]
-        verification_codes = set(generated_codes)
-        self.assertEqual(len(generated_codes), len(verification_codes))
-
-    def sends_valid_code(self):
-        """
-        Tests that a valid verification is sent to a provided email address.
-        """
-        code = self.mfa.send_code(self.test_email)
-        self.assertIsNotNone(code)
-        self.assertEqual(len(code), 6)
-
-    def send_to_invalid_email_throws_error(self):
-        """
-        Tests that an attempt to send a code to an invalid email throws an error.
-        """
-        with self.assertRaises(ValueError):
-            self.mfa.send_code("fake.email")
-
-    def sent_code_is_stored(self):
-        """
-        Tests that a verification code is stored in the code database upon being sent.
-        """
-        code = self.mfa.send_code(self.test_email)
-        is_stored = self.mfa.database.get_code(self.test_email)
-        self.assertIsNotNone(is_stored)
-
-    def code_is_validated(self):
-        """
-        Tests that a code is successfully validated.
-        """
-        code = self.mfa.send_code(self.test_email)
-        self.assertTrue(self.mfa.validate_code(self.test_email, code))
-
-    def code_is_invalidated(self):
-        """
-        Tests that an incorrect code entry is rejected.
-        """
-        self.mfa.send_code(self.test_email)
-        self.assertFalse(self.mfa.validate_code(self.test_email, "000000"))
-
-    def code_is_expired(self):
-        """
-        Tests that an expired code entry is rejected.
-        """
-        with patch('time.time', return_value=datetime.now().timestamp() + 601):
-            code = self.mfa.send_code(self.test_email)
-            self.assertFalse(self.mfa.validate_code(self.test_email, code))
-
-    def submitted_code_is_stored(self):
-        """
-        Tests that an entered code is stored in the database.
-        """
-        code = "654321"
-        self.mfa.store_mfa_code(self.test_email, code)
-        stored_code = self.mfa.database.get_code(self.test_email)
-        self.assertIsNotNone(stored_code)
-
-    def overwrite_stored_code(self):
-        """
-        Tests when a new code is entered and store, the old code is overwritten.
-        """
-        self.mfa.store_mfa_code(self.test_email, "121212")
-        code = self.mfa.database.get_code(self.test_email)
-        self.assertEqual(code[0], "121212")
-        self.mfa.store_mfa_code(self.test_email, "131313")
-        new_code = self.mfa.database.get_code(self.test_email)
-        self.assertEqual(new_code[0], "131313")
+        self.mfa.database.delete_secret(self.test_email)
 
 
-class EmailCodeTests(unittest.TestCase):
-    """
-    Test cases for the EmailCode class in totp_mfa.py
-    """
+    def generates_secret_key(self):
+        """
+        Tests that a secret key is successfully generated.
+        """
+        secret, _ = self.mfa.generate_totp(self.test_email)
+        self.assertTrue(all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567' for c in secret))
+        self.assertEqual(len(secret), 32)
+
+    def generates_qr_code(self):
+        """
+        Tests that a valid QR code is successfully generated.
+        """
+        _, qr_code = self.mfa.generate_totp(self.test_email)
+
+        try:
+            code = base64.b64decode(qr_code)
+            self.assertTrue(code.startswith(b'\x89PNG'))
+        except Exception:
+            self.fail("Invalid QR Code.")
+
+
+    def stores_secret_key(self):
+        """
+        Tests that the generated secret key is stored in the database.
+        """
+        secret, _ = self.mfa.generate_totp(self.test_email)
+        secret_key = self.mfa.database.get_secret(self.test_email)
+        self.assertEqual(secret, secret_key)
+
     
-    def credentials(self):
+    def invalid_qr_code_fails(self):
         """
-        Initializes a test admin email, test user email, and test user password.
+        Tests that an invalid passcode is rejected.
         """
-        self.email = EmailCode()
-        self.test_email = "user@wsu.edu"
-        self.email.send_from = "admin.wsu.edu"
-        self.email.password = "password"
+        self.mfa.generate_totp(self.test_email)
+        code = "000000"
+        self.assertFalse(self.mfa.validate_code(self.test_email, code))
 
-    @patch('smtplib.SMTP_SSL')
-    def sends_email(self, smtp):
-        """
-        Tests that an email is successfully sent to the user's email address.
-        """
-        send_email = self.email.send_to(self.test_email, "121212")
-        self.assertTrue(send_email)
-        smtp.return_value.send_message.assert_called_once()
-
-    def invalid_receiving_email(self):
-        """
-        Tests that an error is thrown when there is an attempt to send an email to invalid address.
-        """
-        with self.assertRaises(ValueError):
-            self.email.send_to("fake.email", "121212")
-        
-
+    
 class DatabaseServerTests(unittest.TestCase):
     """
     Test cases for the DatabaseServer class in totp_mfa.py
     """
-    
-    def server(self):
+
+    def setUp(self):
         """
-        Initializes the database and a test user email.
+        Initializing the test environment.
         """
         self.database = DatabaseServer()
         self.test_email = "user@wsu.edu"
-        self.database.create_tables()
+        self.test_secret = "SDERQ8UITGVC2MOF"
+        self.database.delete_secret(self.test_email)
 
-    def code_in_database(self):
-        """
-        Tests that verification codes are stored in the database.
-        """
-        self.database.store_code(self.test_email, "121212", datetime.now())
-        is_stored = self.database.get_code(self.test_email)
-        self.assertEqual(is_stored[0], "121212")
     
-    def get_verification_code(self):
+    def store_secret_key(self):
         """
-        Tests fetching verification codes from the database.
+        Tests that the secret key is stored in the database.
         """
-        self.database.store_code(self.test_email, "121212", datetime.now())
-        code, _ = self.database.get_code(self.test_email)
-        self.assertEqual(code, "121212")
+        self.assertTrue(self.database.store_secret(self.test_email, self.test_secret))
+        secret = self.database.get_secret(self.test_email)
+        self.assertEqual(secret, self.test_secret)
 
-    def get_nonexistent_code_error(self):
-        """
-        Tests that attempting to retrieve a verification that doesn't exist throws an error.
-        """
-        code = self.database.get_code("test@wsu.edu")
-        self.assertIsNone(code)
 
-    def code_is_used(self):
+    def secret_deletes(self):
         """
-        Tests that a verification code is successfully marked as used once a user submits it.
+        Tests that deleting a secret key is successful.
         """
-        self.database.store_code(self.test_email, "121212", datetime.now())
-        self.database.is_used(self.test_email, "121212")
-        code = self.database.get_code(self.test_email)
-        self.assertIsNone(code)
+        self.database.store_secret(self.test_email, self.test_secret)
+        self.assertTrue(self.database.delete_secret(self.test_email))
+        self.assertIsNone(self.database.get_secret(self.test_email))
+
+
+    def tearDown(self):
+        """
+        Cleaning up the test environment.
+        """
+        self.database.delete_secret(self.test_email)
+
 
 if __name__ == '__main__':
     unittest.main()
