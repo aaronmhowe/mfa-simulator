@@ -41,3 +41,8 @@ Simple UI-based application that simulates a login page that employs a multi-fac
 https://pyauth.github.io/pyotp/ 
 ### Python's Testing Framework unittest
 https://docs.python.org/3/library/unittest.html
+### Python's QR Code Documentation
+https://pypi.org/project/qrcode/
+### Informational Videos
+https://www.youtube.com/watch?v=C-jkO6coJkk
+
