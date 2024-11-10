@@ -92,8 +92,19 @@ class DatabaseServer:
         Stores a generated verification code in the database.
         - Param: email [str] -> User's email address.
         - Param: secret [str] -> Generated secret key.
+        - Returns: True if the secret has been stored.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''INSERT OR REPLACE INTO totp_secrets 
+                               (email, secret)
+                               VALUES (?, ?)''', (email, secret))
+                conn.commit()
+                return True
+        except sqlite3.Error:
+            return False
+        
 
     def get_secret(self, email: str) -> Optional[str]:
         """
@@ -101,7 +112,14 @@ class DatabaseServer:
         - Param: email [str] -> User's email address.
         - Returns: The secret key if it exists.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT secret FROM totp_secrets WHERE email = ?', (email,))
+                key = cursor.fetchone()
+                return key[0] if key else None
+        except sqlite3.Error:
+            return None
 
 
     def delete_secret(self, email: str) -> bool:
@@ -110,7 +128,14 @@ class DatabaseServer:
         - Param: email [str] -> The user's email address.
         - Returns: True if the key is successfully deleted.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM totp_secrets WHERE email = ?', (email,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except sqlite3.Error:
+            return False
 
 
     def create_tables(self) -> None:
@@ -121,7 +146,10 @@ class DatabaseServer:
             # creating a connection to the SQLite database
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('''Create Table totp_secrets (email TEXT PRIMARY KEY, secret TEXT NOT NUL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                cursor.execute('''CREATE TABLE IF NOT EXISTS totp_secrets 
+                               (email TEXT PRIMARY KEY, 
+                               secret TEXT NOT NUL, 
+                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
                 conn.commit()
         except sqlite3.Error as e:
             print(f"Error Occurred Constructing Database Tables: {e}")
