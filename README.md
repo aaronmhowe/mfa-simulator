@@ -45,8 +45,7 @@ https://docs.python.org/3/library/unittest.html
 https://pypi.org/project/qrcode/
 ### Informational Videos
 https://www.youtube.com/watch?v=C-jkO6coJkk
-https://www.youtube.com/watch?v=RZI-v-Z1W4c
-
+https://www.youtube.com/watch?v=RZI-v-Z1W4c 
 ### SQLite Python: Creating Tables
 https://www.sqlitetutorial.net/sqlite-python/creating-tables/
 
