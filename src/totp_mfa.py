@@ -28,14 +28,49 @@ class TOTPMFA:
         as a QR Code.
         - Returns: the generated secret key and QR code
         """
-        pass
+        # throw an error if the user enters an email without an @ or . character
+        if not '@' in email or not '.' in email:
+            raise ValueError("Invalid Format.")
+        
+        secret = pyotp.random_base32()
+        totp = pyotp.TOTP(secret)
+        # constructing a provisioning URI to host the totp QR code
+        provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Simulator")
+
+        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
+        qr_code.add_data(provisioning_uri)
+        qr_code.make(fit=True)
+
+        # designs and constructs the visual display of the generated QR code
+        qr_image = qr_code.make_image(fill_color="black", back_color="white")
+        buffer = io.BytesIO()
+        qr_image.save(buffer, format="PNG")
+        # converts the generated QR code to a base64 string through the buffer
+        base64_conversion = base64.b64encode(buffer.getvalue()).decode()
+        self.database.store_secret(email, secret)
+
+        return secret, base64_conversion
 
     
     def validate_code(self, email: str, code: str) -> bool:
         """
         Validates the generated code.
+        - Param: email [str] -> User's email address.
+        - Param: code [str] -> Code provided by the user.
+        - Returns: True if the provided code from the user is valid.
         """
-        pass
+        try:
+            secret = self.database.get_secret(email)
+
+            if not secret:
+                return False
+            
+            totp = pyotp.TOTP(secret)
+            
+            return totp.verify(code)
+        
+        except Exception:
+            return False
 
 
 class DatabaseServer:
