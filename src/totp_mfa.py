@@ -117,4 +117,11 @@ class DatabaseServer:
         """
         Constructs database tables.
         """
-        pass
+        try:
+            # creating a connection to the SQLite database
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''Create Table totp_secrets (email TEXT PRIMARY KEY, secret TEXT NOT NUL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error Occurred Constructing Database Tables: {e}")
