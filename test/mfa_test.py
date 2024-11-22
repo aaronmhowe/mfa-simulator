@@ -22,7 +22,7 @@ class TOTPMFATests(unittest.TestCase):
         self.mfa.database.delete_secret(self.test_email)
 
 
-    def generates_secret_key(self):
+    def test_generates_secret_key(self):
         """
         Tests that a secret key is successfully generated.
         """
@@ -30,7 +30,7 @@ class TOTPMFATests(unittest.TestCase):
         self.assertTrue(all(c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567' for c in secret))
         self.assertEqual(len(secret), 32)
 
-    def generates_qr_code(self):
+    def _test_generates_qr_code_test(self):
         """
         Tests that a valid QR code is successfully generated.
         """
@@ -43,7 +43,7 @@ class TOTPMFATests(unittest.TestCase):
             self.fail("Invalid QR Code.")
 
 
-    def stores_secret_key(self):
+    def test_stores_secret_key_test(self):
         """
         Tests that the generated secret key is stored in the database.
         """
@@ -52,7 +52,7 @@ class TOTPMFATests(unittest.TestCase):
         self.assertEqual(secret, secret_key)
 
     
-    def invalid_qr_code_fails(self):
+    def test_invalid_qr_code_fails_test(self):
         """
         Tests that an invalid passcode is rejected.
         """
@@ -76,7 +76,7 @@ class DatabaseServerTests(unittest.TestCase):
         self.database.delete_secret(self.test_email)
 
     
-    def store_secret_key(self):
+    def test_store_secret_key_test(self):
         """
         Tests that the secret key is stored in the database.
         """
@@ -85,7 +85,7 @@ class DatabaseServerTests(unittest.TestCase):
         self.assertEqual(secret, self.test_secret)
 
 
-    def secret_deletes(self):
+    def test_secret_deletes_test(self):
         """
         Tests that deleting a secret key is successful.
         """

@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime
 from typing import Optional, Tuple
 import qrcode
+from PIL import Image
 import io
 import base64
 

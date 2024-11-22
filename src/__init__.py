@@ -1,3 +1,3 @@
-from .totp_mfa import TOTPMFA, EmailCode, DatabaseServer
+from .totp_mfa import TOTPMFA, DatabaseServer
 
-__all__ = ['TOTPMFA', 'EmailCode', 'DatabaseServer']
+__all__ = ['TOTPMFA', 'DatabaseServer']
