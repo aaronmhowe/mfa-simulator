@@ -72,7 +72,7 @@ class TOTPMFA:
         except Exception:
             return False
     
-    def is_locked(self, email: str) -> bool:
+    def is_blocked(self, email: str) -> bool:
         """
         Determines if the user has made too many verification attempts to add protection
         against brute-force attacks.
@@ -190,3 +190,12 @@ class DatabaseServer:
         - Param: email [str] -> User's email address.
         - Returns: True if an attempt was successfully tracked and stored in the database.
         """
+        pass
+
+    def get_verification_attempts(self, email: str) -> bool:
+        """
+        Fetches failed verification attempts stored in the base.
+        - Param: email [str] -> User's email address.
+        - Returns: True if at least one failed attempt is found. False otherwise.
+        """
+        pass
