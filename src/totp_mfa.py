@@ -22,7 +22,6 @@ class TOTPMFA:
 
         self.database = DatabaseServer()
 
-
     def generate_totp(self, email: str) -> Tuple[str, str]:
         """
         Generates a secret key and uses it to construct a time-based one-time password
@@ -52,7 +51,6 @@ class TOTPMFA:
             raise RuntimeError("Failed to store secret in database")
 
         return secret, base64_conversion
-
     
     def validate_code(self, email: str, code: str) -> bool:
         """
@@ -73,6 +71,30 @@ class TOTPMFA:
         
         except Exception:
             return False
+    
+    def is_locked(self, email: str) -> bool:
+        """
+        Determines if the user has made too many verification attempts to add protection
+        against brute-force attacks.
+        - Param: email [str] -> User's email address.
+        - Returns: True if the user has reached the maximum allowed attempts. False otherwise.
+        """
+        pass
+
+    def verification_timeout(self, timer: int) -> None:
+        """
+        Sets a timer for verification input, cancelling verification if the user fails to provide
+        successful input before the timer runs out.
+        - Param: timer [int] -> Set time limit to provide verification.
+        """
+        pass
+
+    def time_limit(self) -> int:
+        """
+        Fetches the input verification time limit.
+        - Returns: The time limit.
+        """
+        pass
 
 
 class DatabaseServer:
@@ -108,7 +130,6 @@ class DatabaseServer:
         except sqlite3.Error as e:
             print(f"Database error in store_secret: {e}")
             return False
-        
 
     def get_secret(self, email: str) -> Optional[str]:
         """
@@ -126,11 +147,10 @@ class DatabaseServer:
             print(f"Database error in get_secret: {e}")
             return None
 
-
     def delete_secret(self, email: str) -> bool:
         """
         Deletes a user's secret key.
-        - Param: email [str] -> The user's email address.
+        - Param: email [str] -> User's email address.
         - Returns: True if the key is successfully deleted.
         """
         try:
@@ -143,7 +163,6 @@ class DatabaseServer:
         except sqlite3.Error as e:
             print(f"Database error in delete_secret: {e}")
             return False
-
 
     def create_tables(self) -> None:
         """
@@ -164,3 +183,10 @@ class DatabaseServer:
         except sqlite3.Error as e:
             print(f"Error Occurred Constructing Database Tables: {e}")
             raise
+
+    def verification_attempts(self, email: str) -> bool:
+        """
+        Tracks each verification attempt made by a user and stores them in the database.
+        - Param: email [str] -> User's email address.
+        - Returns: True if an attempt was successfully tracked and stored in the database.
+        """
