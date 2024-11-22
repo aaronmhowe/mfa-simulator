@@ -48,7 +48,8 @@ class TOTPMFA:
         qr_image.save(buffer, format="PNG")
         # converts the generated QR code to a base64 string through the buffer
         base64_conversion = base64.b64encode(buffer.getvalue()).decode()
-        self.database.store_secret(email, secret)
+        if not self.database.store_secret(email, secret):
+            raise RuntimeError("Failed to store secret in database")
 
         return secret, base64_conversion
 
@@ -98,12 +99,14 @@ class DatabaseServer:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('''INSERT OR REPLACE INTO totp_secrets 
-                               (email, secret)
-                               VALUES (?, ?)''', (email, secret))
+                cursor.execute("""
+                    INSERT OR REPLACE INTO totp_secrets (email, secret)
+                    VALUES (?, ?)
+                """, (email, secret))
                 conn.commit()
                 return True
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            print(f"Database error in store_secret: {e}")
             return False
         
 
@@ -116,10 +119,11 @@ class DatabaseServer:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('SELECT secret FROM totp_secrets WHERE email = ?', (email,))
+                cursor.execute("SELECT secret FROM totp_secrets WHERE email = ?", (email,))
                 key = cursor.fetchone()
                 return key[0] if key else None
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            print(f"Database error in get_secret: {e}")
             return None
 
 
@@ -132,10 +136,12 @@ class DatabaseServer:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('DELETE FROM totp_secrets WHERE email = ?', (email,))
+                cursor.execute("DELETE FROM totp_secrets WHERE email = ?", (email,))
                 conn.commit()
-                return cursor.rowcount > 0
-        except sqlite3.Error:
+                deleted = cursor.rowcount > 0
+                return deleted
+        except sqlite3.Error as e:
+            print(f"Database error in delete_secret: {e}")
             return False
 
 
@@ -147,10 +153,14 @@ class DatabaseServer:
             # creating a connection to the SQLite database
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute('''CREATE TABLE IF NOT EXISTS totp_secrets 
-                               (email TEXT PRIMARY KEY, 
-                               secret TEXT NOT NUL, 
-                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS totp_secrets (
+                        email TEXT PRIMARY KEY, 
+                        secret TEXT NOT NULL, 
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
                 conn.commit()
         except sqlite3.Error as e:
             print(f"Error Occurred Constructing Database Tables: {e}")
+            raise
