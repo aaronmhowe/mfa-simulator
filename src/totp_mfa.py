@@ -1,12 +1,14 @@
 import pyotp
-from typing import Tuple
+import time
+from typing import List, Tuple, Optional
 import sqlite3
-from datetime import datetime
-from typing import Optional, Tuple
+from datetime import datetime, timedelta
 import qrcode
 from PIL import Image
 import io
 import base64
+import secrets
+import string
 
 
 class TOTPMFA:
@@ -15,12 +17,16 @@ class TOTPMFA:
     Multifactor Authentication software, that generates a QR verification code for a user.
     """
 
+    INPUT_LIMIT = 3
+    TIMEOUT = 60
+    VERIFICATION_WINDOW = 1
+
     def __init__(self):
         """
         Constructor for the TOTPMFA class - initializes the database.
         """
-
         self.database = DatabaseServer()
+        self.verification_window = self.VERIFICATION_WINDOW
 
     def generate_totp(self, email: str) -> Tuple[str, str]:
         """
@@ -60,13 +66,23 @@ class TOTPMFA:
         - Returns: True if the provided code from the user is valid.
         """
         try:
+            # invalidate verification if the user has made too many attempts
+            if self.is_blocked(email):
+                return False
+
             secret = self.database.get_secret(email)
 
             if not secret:
                 return False
             
             totp = pyotp.TOTP(secret)
+            # fetch when the user input verification
+            valid_code = totp.verify(code, valid_window=self.verification_window)
             
+            # invalidate verification if it does not fall within the window
+            if not valid_code:
+                self.database.verification_attempts(email)
+
             return totp.verify(code)
         
         except Exception:
@@ -79,20 +95,27 @@ class TOTPMFA:
         - Param: email [str] -> User's email address.
         - Returns: True if the user has reached the maximum allowed attempts. False otherwise.
         """
-        pass
+        attempts = self.database.get_verification_attempts(email)
+        # return true if the user's number of attempts is beyond the limit and time window
+        if attempts >= self.INPUT_LIMIT:
+            last = self.database.get_input_time(email)
+            if last and (time.time() - last) < self.TIMEOUT:
+                return True
+            
+        return False
 
-    def verification_timeout(self, timer: int) -> None:
+    def verification_timeout_window(self, window: int) -> None:
         """
         Sets a timer for verification input, cancelling verification if the user fails to provide
         successful input before the timer runs out.
-        - Param: timer [int] -> Set time limit to provide verification.
+        - Param: window [int] -> Verification window size.
         """
         pass
 
-    def time_limit(self) -> int:
+    def get_window(self) -> int:
         """
-        Fetches the input verification time limit.
-        - Returns: The time limit.
+        Fetches the input verification time window.
+        - Returns: The window.
         """
         pass
 
@@ -197,5 +220,13 @@ class DatabaseServer:
         Fetches failed verification attempts stored in the base.
         - Param: email [str] -> User's email address.
         - Returns: True if at least one failed attempt is found. False otherwise.
+        """
+        pass
+
+    def get_input_time(self, email: str) -> int:
+        """
+        Fetches the point within the time window that the user last entered a verification attempt.
+        - Param: email [str] -> User's email address.
+        - Returns: The time at last verification attempt.
         """
         pass
