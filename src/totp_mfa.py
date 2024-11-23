@@ -120,7 +120,7 @@ class TOTPMFA:
         Fetches the input verification time window.
         - Returns: The window.
         """
-        return self.verification_window(10)
+        return self.verification_window()
 
 
 class DatabaseServer:
