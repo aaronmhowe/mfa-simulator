@@ -104,20 +104,23 @@ class TOTPMFA:
             
         return False
 
-    def verification_timeout_window(self, window: int) -> None:
+    def verification_window(self, window: int) -> None:
         """
         Sets a timer for verification input, cancelling verification if the user fails to provide
         successful input before the timer runs out.
         - Param: window [int] -> Verification window size.
         """
-        pass
+        # below 0 is invalid, reset the window size
+        if (window < 0):
+            window = self.verification_window
+        window = self.verification_window
 
     def get_window(self) -> int:
         """
         Fetches the input verification time window.
         - Returns: The window.
         """
-        pass
+        return self.verification_window(10)
 
 
 class DatabaseServer:

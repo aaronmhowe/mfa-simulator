@@ -74,10 +74,10 @@ class TOTPMFATests(unittest.TestCase):
         Tests that verification input is accepted when entered within the set time window.
         """
         self.mfa.generate_totp(self.test_email)
-        limit = self.mfa.time_limit()
-        self.mfa.verification_timeout(5)
-        self.assertEqual(self.mfa.time_limit(), 5)
-        self.mfa.time_limit(limit)
+        limit = self.mfa.get_window()
+        self.mfa.verification_timeout_window(5)
+        self.assertEqual(self.mfa.get_window(), 5)
+        self.mfa.get_window(limit)
 
     
 class DatabaseServerTests(unittest.TestCase):
