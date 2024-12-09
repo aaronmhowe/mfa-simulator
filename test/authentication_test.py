@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from src.authentication import Authentication, AuthenticationDatabase
 
-class AuthenticationTests(unittest.Testcase):
+class AuthenticationTests(unittest.TestCase):
     """
     Test cases for the Authentication class in authentication.py
     """

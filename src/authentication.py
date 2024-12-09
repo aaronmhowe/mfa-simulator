@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Dict
 from datetime import datetime, timedelta
 import secrets
 import bcrypt
+import re
 from .totp_mfa import TOTPMFA
 
 class Authentication:
@@ -18,7 +19,7 @@ class Authentication:
         self.database = AuthenticationDatabase()
         self.mfa = TOTPMFA()
         # tracking accounts that are actively logged in
-        self.logged_in_accounts = Dict[str, datetime] = {}
+        self.logged_in_accounts: Dict[str, datetime] = {}
 
     def register_account(self, email: str, password: str) -> bool:
         """
@@ -27,7 +28,30 @@ class Authentication:
         - Param: password [str] -> User's password.
         - Returns: True if successfully registered.
         """
-        pass
+        try:
+            # check if provided email is valid format
+            if not self.is_valid_email(email):
+                return False
+            
+            # check if proposed password meets minimum requirements
+            if not self.is_valid_password(password):
+                return False
+            
+            # check if email already in use
+            if self.database.get_credentials(email):
+                return False
+            
+            # encrypt user password
+            salt = bcrypt.gensalt()
+            passwd = bcrypt.hashpw(password.encode(), salt)
+
+            # if provided credentials are valid, store in database
+            if self.database.store_credentials(email, passwd):
+                return True
+            return False
+        except Exception as e:
+            print(f"Error occurred when trying to register account: {e}")
+            return False
 
     def login(self, email: str, password: str) -> Tuple[bool, Optional[str]]:
         """
@@ -38,7 +62,24 @@ class Authentication:
         - Param: password [str] -> User's password.
         - Returns: True upon successful authentication, with a session token.
         """
-        pass
+        try:
+            account = self.database.get_credentials(email)
+            # check if credentials don't match existing
+            if not account:
+                return False, None
+            # check if provided password matches hashed password
+            passwd = account[1]
+            if not bcrypt.checkpw(password.encode('utf-8'), passwd):
+                return False, None
+            
+            # identification token to attach to user while logged in
+            token = secrets.token_urlsafe(32)
+            self.logged_in_accounts[token] = datetime.now()
+
+            return True, token
+        except Exception as e:
+            print(f"Error occurred on login attempt: {e}")
+            return False, None
 
     def is_valid_email(self, email: str) -> bool:
         """
@@ -46,7 +87,8 @@ class Authentication:
         - Param: email [str] -> User's email address.
         - Returns: True if the provided email is valid.
         """
-        pass
+        email_format = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        return bool(re.match(email_format, email))
 
     def is_valid_password(self, password: str) -> bool:
         """
@@ -55,7 +97,13 @@ class Authentication:
         special character, and at least one number.
         - Param: email [str] -> User's password.
         """
-        pass
+        if len(password) < 12:
+            return False
+        has_lowercase = bool(re.search(r'[a-z]', password))
+        has_uppercase = bool(re.search(r'[A-Z]', password))
+        has_number = bool(re.search(r'\d', password))
+        has_special = bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', password))
+        return has_lowercase and has_uppercase and has_number and has_special
 
     def user_mfa(self, email: str) -> Tuple[bool, Optional[str]]:
         """
@@ -63,7 +111,18 @@ class Authentication:
         - Param: email [str] -> User's email address.
         - Returns: True if multifactor authentication is set up, with a generated QR-code.
         """
-        pass
+        try:
+            if not self.database.get_credentials(email):
+                return False, None
+            
+            _, qr = self.mfa.generate_totp(email)
+            if qr:
+                return True, qr
+            return False, None
+        
+        except Exception as e:
+            print(f"Error occurred setting up multifactor authentication: {e}")
+            return False, None
 
     def verify_authentication_code(self, email: str, code: str) -> Tuple[bool, str]:
         """
@@ -72,15 +131,32 @@ class Authentication:
         - Param: code [str] -> mfa-generated, user-provided authentication code.
         - Returns: True if authentication code is valid, with a message response based on its validity.
         """
-        pass
+        try:
+            if not self.mfa.validate_code(email, code):
+                return False, "Code Not Valid."
+            return True, "Code Accepted."
+        except Exception as e:
+            return False, f"Error ocurred while verifying code: {str(e)}"
 
+    def is_active(self, token: str) -> bool:
+        """
+        Checks if an account is currently logged in.
+        - Param: token [str] -> Token identification assigned to an account at login.
+        - Return: True if an account is currently logged in.
+        """
+        return token in self.logged_in_accounts
+    
     def logout(self, token: str) -> bool:
         """
         Logs a user out of the application, which works by rendering the token provided at login void.
         - Param: token [str] -> identification token attached to a user upon successful login.
         - Returns: True if token is void.
         """
-        pass
+        if token in self.logged_in_accounts:
+            del self.logged_in_accounts[token]
+            return True
+        return False
+
     
 
 class AuthenticationDatabase:
@@ -93,6 +169,7 @@ class AuthenticationDatabase:
         Constructor for the Authentication database - setting up a path to its sqlite database.
         """
         self.path = "auth.db"
+        self.create_auth_tables()
 
     def store_credentials(self, email: str, passwd: bytes) -> bool:
         """
@@ -102,7 +179,18 @@ class AuthenticationDatabase:
         - Param: passwd [bytes] -> User's hashed password.
         - Returns: True if credentials are successfully stored in the database.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO users (email, passwd, created_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                """, (email, passwd))
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            print(f"Error storing account credentials: {e}")
+            return False
 
     def get_credentials(self, email: str) -> Optional[Tuple[str, bytes]]:
         """
@@ -110,11 +198,35 @@ class AuthenticationDatabase:
         - Param: email [str] -> User's email address.
         - Returns: User's account credentials.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT email, passwd, created_at
+                    FROM users WHERE email = ?
+                """, (email,))
+                return cursor.fetchone()
+        except sqlite3.Error as e:
+            print(f"Error retrieving account credentials: {e}")
+            return None
 
     def create_auth_tables(self):
         """
         Constructs database tables in the authentication database.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("DROP TABLE IF EXISTS users")
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS users (
+                        email TEXT PRIMARY KEY,
+                        passwd BLOB NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                conn.commit()
+        except sqlite3.Error as e:
+            print(f"Error occurred while attempting to create sqlite database tables: {e}")
+            raise
         
