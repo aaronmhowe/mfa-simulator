@@ -2,7 +2,7 @@ import sqlite3
 from typing import Optional, Tuple, Dict
 from datetime import datetime, timedelta
 import secrets
-import scrypt
+import bcrypt
 from .totp_mfa import TOTPMFA
 
 class Authentication:
@@ -15,7 +15,10 @@ class Authentication:
         """
         Constructor for the Authentication class.
         """
-        pass
+        self.database = AuthenticationDatabase()
+        self.mfa = TOTPMFA()
+        # tracking accounts that are actively logged in
+        self.logged_in_accounts = Dict[str, datetime] = {}
 
     def register_account(self, email: str, password: str) -> bool:
         """
@@ -78,6 +81,7 @@ class Authentication:
         - Returns: True if token is void.
         """
         pass
+    
 
 class AuthenticationDatabase:
     """
@@ -88,7 +92,7 @@ class AuthenticationDatabase:
         """
         Constructor for the Authentication database - setting up a path to its sqlite database.
         """
-        self.path = "cred.db"
+        self.path = "auth.db"
 
     def store_credentials(self, email: str, passwd: bytes) -> bool:
         """
@@ -108,9 +112,9 @@ class AuthenticationDatabase:
         """
         pass
 
-    def create_cred_tables(self):
+    def create_auth_tables(self):
         """
-        Constructs database tables in the credentials database.
+        Constructs database tables in the authentication database.
         """
         pass
         
