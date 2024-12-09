@@ -44,14 +44,14 @@ https://docs.python.org/3/library/unittest.html
 ### Python's QR Code Documentation
 https://pypi.org/project/qrcode/
 ### Informational Videos
-Multi-factor Authentication: Programming Using Python: https://www.youtube.com/watch?v=C-jkO6coJkk 
+- Multi-factor Authentication: Programming Using Python: https://www.youtube.com/watch?v=C-jkO6coJkk 
 
-How to Store Data with Python and SQLite3: https://www.youtube.com/watch?v=RZI-v-Z1W4c 
-## SQLite Python
+- How to Store Data with Python and SQLite3: https://www.youtube.com/watch?v=RZI-v-Z1W4c 
+### SQLite Python
 - Creating Tables: https://www.sqlitetutorial.net/sqlite-python/creating-tables/
 
 - Building Password Databases: https://magepy.hashnode.dev/python-and-sqlite-building-password-databases 
 ### Python's BCrypt Password Hash Function
-BCrypt Documentation & Files: https://pypi.org/project/bcrypt/
+- BCrypt Documentation & Files: https://pypi.org/project/bcrypt/
 
-Hashing Passwords in Python with BCrypt: https://www.geeksforgeeks.org/hashing-passwords-in-python-with-bcrypt/ 
+- Hashing Passwords in Python with BCrypt: https://www.geeksforgeeks.org/hashing-passwords-in-python-with-bcrypt/ 
