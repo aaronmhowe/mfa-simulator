@@ -42,13 +42,12 @@ class Authentication:
                 return False
             
             # encrypt user password
+            pw_bytes = password.encode('utf-8')
             salt = bcrypt.gensalt()
-            passwd = bcrypt.hashpw(password.encode(), salt)
-
+            passwd = bcrypt.hashpw(pw_bytes, salt)
             # if provided credentials are valid, store in database
-            if self.database.store_credentials(email, passwd):
-                return True
-            return False
+            stored = self.database.store_credentials(email, passwd)
+            return stored
         except Exception as e:
             print(f"Error occurred when trying to register account: {e}")
             return False
@@ -66,17 +65,30 @@ class Authentication:
             account = self.database.get_credentials(email)
             # check if credentials don't match existing
             if not account:
-                return False, None
-            # check if provided password matches hashed password
-            passwd = account[1]
-            if not bcrypt.checkpw(password.encode('utf-8'), passwd):
+                print("Account not found")
                 return False, None
             
-            # identification token to attach to user while logged in
-            token = secrets.token_urlsafe(32)
-            self.logged_in_accounts[token] = datetime.now()
+            # check if provided password matches hashed password
+            stored = account[1]
+            try:
+                pw_bytes = password.encode('utf-8')
+                if not isinstance(stored, bytes):
+                    stored = bytes(stored)
 
-            return True, token
+                match = bcrypt.checkpw(pw_bytes, stored)            
+                if match:
+                    # identification token to attach to user while logged in
+                    token = secrets.token_urlsafe(32)
+                    self.logged_in_accounts[token] = datetime.now()
+                    return True, token
+                else:
+                    print("Password verification failed")
+                    return False, None
+                
+            except Exception as e:
+                print(f"Password verification error: {str(e)}")
+                return False, None
+
         except Exception as e:
             print(f"Error occurred on login attempt: {e}")
             return False, None
@@ -102,7 +114,8 @@ class Authentication:
         has_lowercase = bool(re.search(r'[a-z]', password))
         has_uppercase = bool(re.search(r'[A-Z]', password))
         has_number = bool(re.search(r'\d', password))
-        has_special = bool(re.search(r'[!@#$%^&*(),.?":{}|<>]', password))
+        has_special = bool(re.search(r'[-!@#$%^&*(),.?":{}|<>]', password))
+
         return has_lowercase and has_uppercase and has_number and has_special
 
     def user_mfa(self, email: str) -> Tuple[bool, Optional[str]]:
@@ -152,6 +165,9 @@ class Authentication:
         - Param: token [str] -> identification token attached to a user upon successful login.
         - Returns: True if token is void.
         """
+        if not token:
+            return False
+
         if token in self.logged_in_accounts:
             del self.logged_in_accounts[token]
             return True
@@ -183,11 +199,12 @@ class AuthenticationDatabase:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    INSERT INTO users (email, passwd, created_at)
-                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    INSERT INTO users (email, passwd)
+                    VALUES (?, ?)
                 """, (email, passwd))
                 conn.commit()
-                return True
+                result = cursor.rowcount > 0
+                return result
         except sqlite3.Error as e:
             print(f"Error storing account credentials: {e}")
             return False
@@ -202,10 +219,17 @@ class AuthenticationDatabase:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
                 cursor.execute("""
-                    SELECT email, passwd, created_at
-                    FROM users WHERE email = ?
+                    SELECT email, passwd FROM users 
+                    WHERE email = ?
                 """, (email,))
-                return cursor.fetchone()
+                result =  cursor.fetchone()
+                if result:
+                    user_email, pw_bytes = result
+                    if not isinstance(pw_bytes, bytes):
+                        pw_bytes = bytes(pw_bytes)
+                    return (user_email, pw_bytes)
+
+                return None
         except sqlite3.Error as e:
             print(f"Error retrieving account credentials: {e}")
             return None
@@ -219,10 +243,9 @@ class AuthenticationDatabase:
                 cursor = conn.cursor()
                 cursor.execute("DROP TABLE IF EXISTS users")
                 cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
+                    CREATE TABLE users (
                         email TEXT PRIMARY KEY,
-                        passwd BLOB NOT NULL,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        passwd BLOB NOT NULL
                     )
                 """)
                 conn.commit()
