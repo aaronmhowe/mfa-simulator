@@ -6,7 +6,7 @@ import sqlite3
 import sqlite3
 import base64
 import re
-from src.totp_mfa import TOTPMFA, DatabaseServer
+from src.totp_mfa import TOTPMFA, MultifactorDatabase
 
 
 class TOTPMFATests(unittest.TestCase):
@@ -84,7 +84,7 @@ class TOTPMFATests(unittest.TestCase):
         self.mfa.set_verification_window(window)
 
     
-class DatabaseServerTests(unittest.TestCase):
+class MultifactorDatabaseTests(unittest.TestCase):
     """
     Test cases for the DatabaseServer class in totp_mfa.py
     """
@@ -93,7 +93,7 @@ class DatabaseServerTests(unittest.TestCase):
         """
         Initializing the test environment.
         """
-        self.database = DatabaseServer()
+        self.database = MultifactorDatabase()
         self.mfa = TOTPMFA()
         self.test_email = "user@wsu.edu"
         self.test_secret = "SDERQ8UITGVC2MOF"

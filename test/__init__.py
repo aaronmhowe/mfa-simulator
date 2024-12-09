@@ -1,6 +1,6 @@
-from .mfa_test import TOTPMFATests, DatabaseServerTests
+from .mfa_test import TOTPMFATests, MultifactorDatabaseTests
 
 __all__ = [
     'TOTPMFATests',
-    'DatabaseServerTests'
+    'MultifactorDatabaseTests'
 ]
