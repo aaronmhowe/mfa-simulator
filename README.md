@@ -48,4 +48,6 @@ https://www.youtube.com/watch?v=C-jkO6coJkk
 https://www.youtube.com/watch?v=RZI-v-Z1W4c 
 ### SQLite Python: Creating Tables
 https://www.sqlitetutorial.net/sqlite-python/creating-tables/
-
+### BCrypt Password Hashing Function by Python Cryptographic Authority
+https://pypi.org/project/bcrypt/ 
+https://www.geeksforgeeks.org/hashing-passwords-in-python-with-bcrypt/ 
