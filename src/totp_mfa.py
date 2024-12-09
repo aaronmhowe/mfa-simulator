@@ -82,8 +82,10 @@ class TOTPMFA:
             # invalidate verification if it does not fall within the window
             if not valid_code:
                 self.database.verification_attempts(email)
+            else:
+                self.database.delete_attempts(email)
 
-            return totp.verify(code)
+            return valid_code
         
         except Exception:
             return False
@@ -95,16 +97,30 @@ class TOTPMFA:
         - Param: email [str] -> User's email address.
         - Returns: True if the user has reached the maximum allowed attempts. False otherwise.
         """
-        attempts = self.database.get_verification_attempts(email)
-        # return true if the user's number of attempts is beyond the limit and time window
-        if attempts >= self.INPUT_LIMIT:
-            last = self.database.get_input_time(email)
-            if last and (time.time() - last) < self.TIMEOUT:
-                return True
-            
-        return False
+        try:
+            attempts = self.database.get_verification_attempts(email)
+            # return true if the user's number of attempts is beyond the limit and time window
+            if attempts >= self.INPUT_LIMIT:
+                last_attempt = self.database.get_last_input_time(email)
+                if last_attempt is not None:
+                    stopwatch = time.time() - last_attempt
+                    if stopwatch < self.TIMEOUT:
+                        return True
+                    
+                self.database.delete_attempts(email) 
+            return False
+        except Exception as e:
+            print(f"Error occurred when user reached verification attempt limit: {e}")
+            return False
 
-    def verification_window(self, window: int) -> None:
+    def generate_new_totp(self, email: str) -> Tuple[str, str]:
+        """
+        Generates a new secret key and totp code, and rendering the previously generated code void.
+         - Param: email [str] -> User's email address.
+        """
+        return self.generate_totp(email)
+
+    def set_verification_window(self, window: int) -> None:
         """
         Sets a timer for verification input, cancelling verification if the user fails to provide
         successful input before the timer runs out.
@@ -112,15 +128,15 @@ class TOTPMFA:
         """
         # below 0 is invalid, reset the window size
         if (window < 0):
-            window = self.verification_window
-        window = self.verification_window
+            raise ValueError("Error occurred setting the verification window size: size cannot be negative.")
+        self.verification_window = window
 
     def get_window(self) -> int:
         """
         Fetches the input verification time window.
         - Returns: The window.
         """
-        return self.verification_window()
+        return self.verification_window
 
 
 class DatabaseServer:
@@ -194,15 +210,25 @@ class DatabaseServer:
         """
         Constructs database tables.
         """
+        # creating a connection to the SQLite database
         try:
-            # creating a connection to the SQLite database
             with sqlite3.connect(self.path) as conn:
+                # storing generated secret keys
                 cursor = conn.cursor()
+                cursor.execute("DROP TABLE IF EXISTS verification_attempts")
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS totp_secrets (
                         email TEXT PRIMARY KEY, 
                         secret TEXT NOT NULL, 
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                # storing verification attempts
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS verification_attempts (
+                        email TEXT PRIMARY KEY,
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
                 conn.commit()
@@ -216,20 +242,81 @@ class DatabaseServer:
         - Param: email [str] -> User's email address.
         - Returns: True if an attempt was successfully tracked and stored in the database.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                # store verification attempt
+                cursor.execute("""
+                    UPDATE verification_attempts
+                    SET attempts = COALESCE(attempts, 0) + 1,
+                        last_attempt = CURRENT_TIMESTAMP
+                    WHERE email = ?
+                """, (email,))
 
-    def get_verification_attempts(self, email: str) -> bool:
+                if cursor.rowcount == 0:
+                    cursor.execute("""
+                        INSERT INTO verification_attempts (email, attempts, last_attempt)
+                        VALUES (?, 1, CURRENT_TIMESTAMP)
+                    """, (email,))
+
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            print(f"Error occurred storing verification attempts in database: {e}")
+            return False
+
+    def get_verification_attempts(self, email: str) -> int:
         """
         Fetches failed verification attempts stored in the base.
         - Param: email [str] -> User's email address.
-        - Returns: True if at least one failed attempt is found. False otherwise.
+        - Returns: Count of verification attempts by the user.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT attempts FROM verification_attempts 
+                    WHERE email = ?
+                """, (email,))
+                # retrieve the result of executing the sql query
+                attempts = cursor.fetchone()
+                return attempts[0] if attempts else 0
+        except sqlite3.Error as e:
+            print(f"Error occurred retrieving verification attempts from database: {e}")
+            return 0
 
-    def get_input_time(self, email: str) -> int:
+    def delete_attempts(self, email: str) -> bool:
+        """
+        Clears the database of stored verification attempts.
+        - Param: email [str] -> User's email address.
+        - Returns: True if the verification attempst have cleared.
+        """
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM verification_attempts WHERE email = ?", (email,))
+                conn.commit()
+                return True
+        except sqlite3.Error as e:
+            print(f"Error occurred clearing verification attempts in database: {e}")
+            return False
+
+    def get_last_input_time(self, email: str) -> Optional[float]:
         """
         Fetches the point within the time window that the user last entered a verification attempt.
         - Param: email [str] -> User's email address.
         - Returns: The time at last verification attempt.
         """
-        pass
+        try:
+            with sqlite3.connect(self.path) as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT last_attempt FROM verification_attempts WHERE email = ?", (email,))
+                attempt = cursor.fetchone()
+                # at most recent verification attempt, retrieve timestamp
+                if attempt and attempt[0]:
+                    input_time = datetime.strptime(attempt[0], '%Y-%m-%d %H:%M:%S')
+                    return input_time.timestamp()
+                return None
+        except sqlite3.Error as e:
+            print(f"Error occurred retrieving most recent verification attempt: {e}")
+            return None

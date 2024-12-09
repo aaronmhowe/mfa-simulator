@@ -1,3 +1,4 @@
+import pyotp
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
@@ -63,21 +64,24 @@ class TOTPMFATests(unittest.TestCase):
         """
         self.mfa.generate_totp(self.test_email)
         # three failed verification attempts
-        for _ in range(3):
+        for _ in range(self.mfa.INPUT_LIMIT):
             self.mfa.validate_code(self.test_email, "000000")
+            self.mfa.database.get_verification_attempts(self.test_email)
 
-        self.assertTrue(self.mfa.is_blocked(self.test_email))
+        is_blocked = self.mfa.is_blocked(self.test_email)
+
+        self.assertTrue(is_blocked)
         self.assertFalse(self.mfa.validate_code(self.test_email, "000000"))
 
-    def test_pass_verification_timeout(self):
+    def test_pass_verification_window(self):
         """
         Tests that verification input is accepted when entered within the set time window.
         """
         self.mfa.generate_totp(self.test_email)
-        limit = self.mfa.get_window()
-        self.mfa.verification_timeout_window(5)
+        window = self.mfa.get_window()
+        self.mfa.set_verification_window(5)
         self.assertEqual(self.mfa.get_window(), 5)
-        self.mfa.get_window(limit)
+        self.mfa.set_verification_window(window)
 
     
 class DatabaseServerTests(unittest.TestCase):
@@ -90,6 +94,7 @@ class DatabaseServerTests(unittest.TestCase):
         Initializing the test environment.
         """
         self.database = DatabaseServer()
+        self.mfa = TOTPMFA()
         self.test_email = "user@wsu.edu"
         self.test_secret = "SDERQ8UITGVC2MOF"
         self.database.delete_secret(self.test_email)
@@ -115,9 +120,24 @@ class DatabaseServerTests(unittest.TestCase):
         Tests that failed attempts to pass verification are being properly tracked and stored
         in the database.
         """
-        self.assertTrue(self.database.verification_attempts(self.test_email))
+        result = self.database.verification_attempts(self.test_email)
         attempts = self.database.get_verification_attempts(self.test_email)
+
+        self.assertTrue(result)
         self.assertEqual(attempts, 1)
+
+    def test_delete_attempts(self):
+        """
+        Tests that a all previous verification attempts are deleted upon successful code validation.
+        """
+        secret, _ = self.mfa.generate_totp(self.test_email)
+        for _ in range(2):
+            self.mfa.validate_code(self.test_email, "000000")
+        
+        totp = pyotp.TOTP(secret)
+        valid_code = totp.now()
+        self.assertTrue(self.mfa.validate_code(self.test_email, valid_code))
+        self.assertEqual(self.mfa.database.get_verification_attempts(self.test_email), 0)
 
     def tearDown(self):
         """
