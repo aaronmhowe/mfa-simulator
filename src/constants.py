@@ -3,8 +3,8 @@ Constants to be used throughout application implementaion.
 """
 
 DB_PATH = {
-    'AUTH': 'auth.db',
-    'MFA': 'secrets.db'
+    'AUTH': 'db/auth.db',
+    'MFA': 'db/secrets.db'
 }
 
 DB_TABLES = {

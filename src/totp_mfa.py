@@ -9,6 +9,7 @@ import io
 import base64
 import secrets
 import string
+from .constants import DB_PATH, MFA_SETTINGS, AUTH_SETTINGS, DB_TABLES, INVALIDITY_RESPONSE
 
 
 class TOTPMFA:
@@ -17,16 +18,14 @@ class TOTPMFA:
     Multifactor Authentication software, that generates a QR verification code for a user.
     """
 
-    INPUT_LIMIT = 3
-    TIMEOUT = 60
-    VERIFICATION_WINDOW = 1
-
     def __init__(self):
         """
         Constructor for the TOTPMFA class - initializes the database.
         """
         self.database = MultifactorDatabase()
-        self.verification_window = self.VERIFICATION_WINDOW
+        self.verification_window = MFA_SETTINGS['VERIFICATION_WINDOW']
+        self.input_limit = AUTH_SETTINGS['MAX_LOGIN_ATTEMPTS']
+        self.timeout = AUTH_SETTINGS['LOGIN_TIMEOUT']
 
     def generate_totp(self, email: str) -> Tuple[str, str]:
         """
@@ -36,14 +35,14 @@ class TOTPMFA:
         """
         # throw an error if the user enters an email without an @ or . character
         if not '@' in email or not '.' in email:
-            raise ValueError("Invalid Format.")
+            raise ValueError(INVALIDITY_RESPONSE['EMAIL'])
         
         secret = pyotp.random_base32()
         totp = pyotp.TOTP(secret)
         # constructing a provisioning URI to host the totp QR code
         provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Simulator")
 
-        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
+        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_BORDER_SIZE'])
         qr_code.add_data(provisioning_uri)
         qr_code.make(fit=True)
 
@@ -54,7 +53,7 @@ class TOTPMFA:
         # converts the generated QR code to a base64 string through the buffer
         base64_conversion = base64.b64encode(buffer.getvalue()).decode()
         if not self.database.store_secret(email, secret):
-            raise RuntimeError("Failed to store secret in database")
+            raise RuntimeError(INVALIDITY_RESPONSE['DATABASE'].format("Failed to store secret in database"))
 
         return secret, base64_conversion
     
@@ -150,7 +149,7 @@ class MultifactorDatabase:
         Constructor for the DatabaseServer class - setting up a path to a
         SQLite database.
         """
-        self.path: str = "db/secrets.db"
+        self.path: str = DB_PATH['MFA']
         self.create_mfa_tables()
 
     def store_secret(self, email: str, secret: str) -> bool:
@@ -215,17 +214,17 @@ class MultifactorDatabase:
             with sqlite3.connect(self.path) as conn:
                 # storing generated secret keys
                 cursor = conn.cursor()
-                cursor.execute("DROP TABLE IF EXISTS verification_attempts")
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS totp_secrets (
+                cursor.execute(f"DROP TABLE IF EXISTS {DB_TABLES['VERIFICATION_ATTEMPTS']}")
+                cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {DB_TABLES['TOTP_SECRETS']} (
                         email TEXT PRIMARY KEY, 
                         secret TEXT NOT NULL, 
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
                 # storing verification attempts
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS verification_attempts (
+                cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {DB_TABLES['VERIFICATION_ATTEMPTS']} (
                         email TEXT PRIMARY KEY,
                         attempts INTEGER NOT NULL DEFAULT 0,
                         last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -233,7 +232,7 @@ class MultifactorDatabase:
                 """)
                 conn.commit()
         except sqlite3.Error as e:
-            print(f"Error Occurred Constructing Database Tables: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE_ERROR'].format(str(e)))
             raise
 
     def verification_attempts(self, email: str) -> bool:
