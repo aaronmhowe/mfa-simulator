@@ -55,3 +55,5 @@ https://pypi.org/project/qrcode/
 - BCrypt Documentation & Files: https://pypi.org/project/bcrypt/
 
 - Hashing Passwords in Python with BCrypt: https://www.geeksforgeeks.org/hashing-passwords-in-python-with-bcrypt/ 
+### Constants in Python
+https://realpython.com/python-constants/ 
