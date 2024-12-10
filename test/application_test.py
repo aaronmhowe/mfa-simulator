@@ -73,7 +73,7 @@ class ApplicationTests(unittest.TestCase):
         Tests that invalid login credentials results in the proper application view update.
         """
         self.app.auth.login.return_value = (False, None)
-        login = self.app.app_login(self.test_email, self.test_password)
+        login, _ = self.app.app_login(self.test_email, self.test_password)
         self.assertFalse(login)
         # does not retrieve account or login token
         self.assertIsNone(self.app.get_user())
@@ -85,7 +85,7 @@ class ApplicationTests(unittest.TestCase):
         """
         self.app.user = self.test_email
         self.app.auth.user_mfa.return_value = (True, self.test_qr)
-        mfa, qr = self.app.app_user_mfa()
+        mfa, qr, message = self.app.app_user_mfa()
         self.assertTrue(mfa)
         self.assertEqual(qr, self.test_qr)
         self.app.auth.user_mfa.assert_called_once_with(self.test_email)
@@ -108,7 +108,7 @@ class ApplicationTests(unittest.TestCase):
         self.app.user = self.test_email
         self.app.token = self.test_token
         self.app.auth.verify_authentication_code.return_value = (False, "Invalid Code Input!")
-        code = self.app.app_validate_code("000000")
+        code, _ = self.app.app_validate_code("000000")
         self.assertFalse(code)
         self.assertEqual(self.app.get_view(), ApplicationViews.mfa_verification_view)
 
@@ -120,9 +120,9 @@ class ApplicationTests(unittest.TestCase):
         self.app.token = self.test_token
         self.app.view = ApplicationViews.main_view
         self.app.auth.logout.return_value = True
-        logout = self.app.app_logout()
+        logout, _ = self.app.app_logout()
         self.assertTrue(logout)
-        self.assertEqual(self.app.get_view(), ApplicationViews.startup_view)
+        self.assertEqual(self.app.get_view(), ApplicationViews.login_view)
         self.assertIsNone(self.app.get_user())
         self.assertIsNone(self.app.token)
 
@@ -132,10 +132,10 @@ class ApplicationTests(unittest.TestCase):
         """
         self.app.auth.is_valid_email.side_effect = [True, False]
         # valid email input
-        email = self.app.app_validate_email(self.test_email)
+        email, _ = self.app.app_validate_email(self.test_email)
         self.assertTrue(email)
         # invalid email input
-        email = self.app.app_validate_email("Email is either invalid or does not exist.")
+        email, _ = self.app.app_validate_email("Email is either invalid or does not exist.")
         self.assertFalse(email)
 
     def test_password_validation_updates(self):
@@ -143,12 +143,9 @@ class ApplicationTests(unittest.TestCase):
         Tests that password input results in the proper update.
         """
         self.app.auth.is_valid_password.side_effect = [True, False]
-        password = self.app.app_validate_password(self.test_password)
+        password, _ = self.app.app_validate_password(self.test_password)
         self.assertTrue(password)
-        password = self.app.app_validate_password("""
-                                                  Invalid Password: Must be at least 12 characters in length, have at least one lowercase,
-                                                  one uppercase, one special character, and one number!)
-                                                  """)
+        password, _ = self.app.app_validate_password("Invalid Password: Must be at least 12 characters in length, have at least one lowercase, one uppercase, one special character, and one number!")
         self.assertFalse(password)
 
 if __name__ == '__main__':

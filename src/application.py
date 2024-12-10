@@ -106,8 +106,7 @@ class Application:
         """
         if self.auth.is_valid_password(password):
             return True, "Password Accepted."
-        return False, """Invalid Password: Must be at least 12 characters in length, have at least one lowercase,
-                        one uppercase, one special character, and one number!"""
+        return False, "Invalid Password: Must be at least 12 characters in length, have at least one lowercase, one uppercase, one special character, and one number!"
 
     def app_user_mfa(self) -> Tuple[bool, Optional[str], str]:
         """
