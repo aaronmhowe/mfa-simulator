@@ -8,7 +8,7 @@ class ApplicationViews(Enum):
     """
     Initializes the views for state changes.
     """
-    
+
     startup_view = auto()
     registration_view = auto()
     login_view = auto()
@@ -52,12 +52,12 @@ class Application:
         """
         return self.user
     
-    def app_registration(self, email: str, password: str, confirmation: str) -> Tuple[bool, str]:
+    def app_registration(self, email: str, password: str, password_confirmation: str) -> Tuple[bool, str]:
         """
         Follows state changes to registration and produces reponse messages.
         - Param: email [str] -> User's email address.
         - Param: password [str] -> User's proposed password.
-        - Param: confirmation [str] -> Application response.
+        - Param: confirmation [str] -> User's password confirmation.
         - Returns: True if user entries are valid with a text response from the application.
         """
         pass
