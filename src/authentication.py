@@ -184,7 +184,7 @@ class AuthenticationDatabase:
         """
         Constructor for the Authentication database - setting up a path to its sqlite database.
         """
-        self.path = "auth.db"
+        self.path = "db/auth.db"
         self.create_auth_tables()
 
     def store_credentials(self, email: str, passwd: bytes) -> bool:

@@ -150,7 +150,7 @@ class MultifactorDatabase:
         Constructor for the DatabaseServer class - setting up a path to a
         SQLite database.
         """
-        self.path: str = "secrets.db"
+        self.path: str = "db/secrets.db"
         self.create_mfa_tables()
 
     def store_secret(self, email: str, secret: str) -> bool:
