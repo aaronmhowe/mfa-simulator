@@ -25,7 +25,7 @@ class TOTPMFA:
         """
         Constructor for the TOTPMFA class - initializes the database.
         """
-        self.database = DatabaseServer()
+        self.database = MultifactorDatabase()
         self.verification_window = self.VERIFICATION_WINDOW
 
     def generate_totp(self, email: str) -> Tuple[str, str]:
@@ -139,7 +139,7 @@ class TOTPMFA:
         return self.verification_window
 
 
-class DatabaseServer:
+class MultifactorDatabase:
     """
     Class for the functional logic of the local verification code database. Handles
     the storing and fetching of verification codes.
@@ -151,7 +151,7 @@ class DatabaseServer:
         SQLite database.
         """
         self.path: str = "secrets.db"
-        self.create_tables()
+        self.create_mfa_tables()
 
     def store_secret(self, email: str, secret: str) -> bool:
         """
@@ -206,9 +206,9 @@ class DatabaseServer:
             print(f"Database error in delete_secret: {e}")
             return False
 
-    def create_tables(self) -> None:
+    def create_mfa_tables(self) -> None:
         """
-        Constructs database tables.
+        Constructs database tables in the mfa database.
         """
         # creating a connection to the SQLite database
         try:
