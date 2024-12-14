@@ -128,7 +128,7 @@ class UI:
                 messagebox.showerror(INVALIDITY_RESPONSE['LOGIN'], response)
 
         ttk.Button(self.active_frame, text="Login", command=login_manager).pack(pady=20)
-        ttk.Button(self.active_frame, text="Return to Startup", command=self.display_startup).pack()
+        ttk.Button(self.active_frame, text="Return to Startup", command=self.display_startup).pack(pady=20)
 
     def display_mfa_setup(self):
         """
@@ -145,17 +145,28 @@ class UI:
             qr_code = base64.b64decode(qr)
             qr_image = Image.open(io.BytesIO(qr_code))
             qr_generated = ImageTk.PhotoImage(qr_image)
+            qr_frame = ttk.Frame(self.active_frame)
+            qr_frame.pack(pady=10)
             # display QR code to user
-            qr_display = ttk.Label(self.active_frame, image=qr_generated)
+            qr_display = ttk.Label(qr_frame, image=qr_generated)
             qr_display.image = qr_generated
             qr_display.pack(pady=20)
             ttk.Label(self.active_frame, text="Use Google Authenticator to Scan the QR Code").pack()
+
+            secret_frame = ttk.Frame(self.active_frame)
+            secret_frame.pack(pady=20)
+            secret_key = self.app.auth.mfa.database.get_secret(self.app.get_user())
+            secret_box = ttk.Entry(secret_frame, width=40)
+            secret_box.insert(0, secret_key)
+            secret_box.configure(state='readonly')
+            secret_box.pack(pady=5)
+
             # button click proceeds to verification stage of mfa
-            ttk.Button(self.active_frame, text="Advance to Verification", command=self.display_mfa_verification).pack(pady=20)
-            ttk.Button(self.active_frame, text="Return to Startup", command=self.display_startup)
+            ttk.Button(self.active_frame, text="Advance to Verification", command=self.display_mfa_verification).pack(pady=10)
+            ttk.Button(self.active_frame, text="Return to Startup", command=self.display_startup).pack(pady=10)
         else:
             ttk.Label(self.active_frame, text="QR Code Generation Failed").pack()
-            ttk.Button(self.active_frame, text="Reset", command=self.display_mfa_setup).pack(pady=20)
+            ttk.Button(self.active_frame, text="Reset", command=self.display_registration).pack(pady=10)
 
     def display_mfa_verification(self):
         """

@@ -41,15 +41,17 @@ class TOTPMFA:
         totp = pyotp.TOTP(secret)
         # constructing a provisioning URI to host the totp QR code
         provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Simulator")
+        print(f"Debug - Provisioning URI: {provisioning_uri}")
 
-        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_CODE_BORDER_SIZE'])
+        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_CODE_BORDER_SIZE'])
         qr_code.add_data(provisioning_uri)
         qr_code.make(fit=True)
 
         # designs and constructs the visual display of the generated QR code
         qr_image = qr_code.make_image(fill_color="black", back_color="white")
+        qr_image = qr_image.resize((400, 400))
         buffer = io.BytesIO()
-        qr_image.save(buffer, format="PNG")
+        qr_image.save(buffer, format="PNG", optimize=False, quality=100)
         # converts the generated QR code to a base64 string through the buffer
         base64_conversion = base64.b64encode(buffer.getvalue()).decode()
         if not self.database.store_secret(email, secret):
@@ -70,6 +72,7 @@ class TOTPMFA:
                 return False
 
             secret = self.database.get_secret(email)
+            print(f"Debug - Validating Code: {code} with stored secret: [First 4 Chars: {secret[:4]}...]")
 
             if not secret:
                 return False
@@ -77,6 +80,7 @@ class TOTPMFA:
             totp = pyotp.TOTP(secret)
             # fetch when the user input verification
             valid_code = totp.verify(code, valid_window=self.verification_window)
+            print(f"Debug - Current Valid Code Would Be: {totp.now()}")
             
             # invalidate verification if it does not fall within the window
             if not valid_code:
@@ -86,7 +90,8 @@ class TOTPMFA:
 
             return valid_code
         
-        except Exception:
+        except Exception as e:
+            print(f"Debug - Exception in validate_code: {str(e)}")
             return False
     
     def is_blocked(self, email: str) -> bool:
