@@ -61,9 +61,6 @@ VIEWS = {
     'LOGOUT': "Logging Out..."
 }
 
-LOG = "log/mfa_simulator.log"
-CONFIG = "config/config.ini"
-
 EMAIL_CONFIG = {
     'SMTP_SERVER': 'smtp.gmail.com',
     'SMTP_PORT': 587,
