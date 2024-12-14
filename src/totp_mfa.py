@@ -42,7 +42,7 @@ class TOTPMFA:
         # constructing a provisioning URI to host the totp QR code
         provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Simulator")
 
-        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_BORDER_SIZE'])
+        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_CODE_BORDER_SIZE'])
         qr_code.add_data(provisioning_uri)
         qr_code.make(fit=True)
 

@@ -6,6 +6,6 @@ __all__ = [
     'TOTPMFATests',
     'MultifactorDatabaseTests',
     'AuthenticationTests',
-    'AuthenticationDatabaseTests'
+    'AuthenticationDatabaseTests',
     'ApplicationTests'
 ]

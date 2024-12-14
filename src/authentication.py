@@ -84,7 +84,7 @@ class Authentication:
                     self.logged_in_accounts[token] = datetime.now()
                     return True, token
                 else:
-                    print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
+                    print("Password verification failed")
                     return False, None
                 
             except Exception as e:
