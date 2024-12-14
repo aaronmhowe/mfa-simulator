@@ -41,7 +41,7 @@ class TOTPMFA:
         totp = pyotp.TOTP(secret)
         # constructing a provisioning URI to host the totp QR code
         provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Simulator")
-        print(f"Debug - Provisioning URI: {provisioning_uri}")
+        print(f"Provisioning URI: {provisioning_uri}")
 
         qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_CODE_BORDER_SIZE'])
         qr_code.add_data(provisioning_uri)
