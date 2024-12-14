@@ -89,6 +89,8 @@ class Application:
             return False, INVALIDITY_RESPONSE['PASSWORD_MISMATCH']
         if self.auth.register_account(email, password):
             self.user = email
+            # generates a token after account registration, since account auto-logs in after registering
+            _, self.token = self.auth.login(email, password)
             # transition to multifactor authentication setup view upon successful registration
             self.set_view(ApplicationViews.mfa_setup_view)
             return True, VALIDITY_RESPONSE['REGISTRATION']

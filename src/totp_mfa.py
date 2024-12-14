@@ -219,7 +219,6 @@ class MultifactorDatabase:
             with sqlite3.connect(self.path) as conn:
                 # storing generated secret keys
                 cursor = conn.cursor()
-                cursor.execute(f"DROP TABLE IF EXISTS {DB_TABLES['VERIFICATION_ATTEMPTS']}")
                 cursor.execute(f"""
                     CREATE TABLE IF NOT EXISTS {DB_TABLES['TOTP_SECRETS']} (
                         email TEXT PRIMARY KEY, 

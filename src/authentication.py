@@ -246,9 +246,8 @@ class AuthenticationDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute(f"DROP TABLE IF EXISTS {DB_TABLES['USERS']}")
                 cursor.execute(f"""
-                    CREATE TABLE {DB_TABLES['USERS']} (
+                    CREATE TABLE IF NOT EXISTS {DB_TABLES['USERS']} (
                         email TEXT PRIMARY KEY,
                         passwd BLOB NOT NULL
                     )
