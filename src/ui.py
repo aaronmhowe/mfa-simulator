@@ -219,7 +219,7 @@ class UI:
         title = ttk.Label(self.active_frame, text="User Profile", font=("arial", 16))
         title.pack(pady=20)
         # displays the user's email address
-        ttk.Label(self.active_frame, text="fUser: {self.app.get_user()}").pack(pady=10)
+        ttk.Label(self.active_frame, text=f"User: {self.app.get_user()}").pack(pady=10)
         ttk.Button(self.active_frame, text="Return to Home Page", command=self.display_main).pack(pady=10)
 
     def ui_logout(self):
