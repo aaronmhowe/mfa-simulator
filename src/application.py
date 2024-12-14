@@ -3,6 +3,7 @@ from typing import Optional, Tuple, Dict, Any
 from enum import Enum, auto
 from .authentication import Authentication
 from .totp_mfa import TOTPMFA
+from .constants import VALIDITY_RESPONSE, INVALIDITY_RESPONSE, VIEWS
 
 class ApplicationViews(Enum):
     """
@@ -16,6 +17,22 @@ class ApplicationViews(Enum):
     mfa_verification_view = auto()
     main_view = auto()
     logout_view = auto()
+
+    def view_titles(self) -> str:
+        """
+        Constructs a dictionary containing the display titles of each view in the application.
+        - Returns: The title of a view.
+        """
+        view_dict = {
+            self.startup_view: VIEWS['STARTUP'],
+            self.registration_view: VIEWS['REGISTRATION'],
+            self.login_view: VIEWS['LOGIN'],
+            self.mfa_setup_view: VIEWS['MFA_SETUP'],
+            self.mfa_verification_view: VIEWS['MFA_VERIFICATION'],
+            self.main_view: VIEWS['MAIN'],
+            self.logout_view: VIEWS['LOGOUT']
+        }
+        return view_dict.get(self, VIEWS['STARTUP'])
 
 class Application:
     """
@@ -45,6 +62,13 @@ class Application:
         """
         return self.view
     
+    def get_title(self) -> str:
+        """
+        Fetches the title of the current view state of the application.
+        - Returns: The title of the current view state.
+        """
+        return self.view.view_titles()
+    
     def get_user(self) -> Optional[str]:
         """
         Fetches the account of a user currently logged into the application.
@@ -62,12 +86,12 @@ class Application:
         """
         # display response to user if password confirmation doesn't match original
         if password != password_confirmation:
-            return False, "Password confirmation does not match!"
+            return False, INVALIDITY_RESPONSE['PASSWORD_MISMATCH']
         if self.auth.register_account(email, password):
             self.user = email
             # transition to multifactor authentication setup view upon successful registration
             self.set_view(ApplicationViews.mfa_setup_view)
-            return True, "Registration Complete."
+            return True, VALIDITY_RESPONSE['REGISTRATION']
         
         return False, "Registration Failed - See Email and Password Response."
 
@@ -84,7 +108,7 @@ class Application:
             self.token = token
             # transition to mfa code verification view upon successful login.
             self.set_view(ApplicationViews.mfa_verification_view)
-            return True, "Successfully Logged into Application."
+            return True, VALIDITY_RESPONSE['LOGIN']
         
         return False, "Email/Password Not Recognized or Invalid."
 
@@ -95,8 +119,8 @@ class Application:
         - Returns: True if email entry is valid with a text response from the application.
         """
         if self.auth.is_valid_email(email):
-            return True, "Email Accepted."
-        return False, "Invalid Email Format!"
+            return True, VALIDITY_RESPONSE['EMAIL']
+        return False, INVALIDITY_RESPONSE['EMAIL']
 
     def app_validate_password(self, password: str) -> Tuple[bool, str]:
         """
@@ -105,8 +129,8 @@ class Application:
         - Returns: True if password entry is valid with a text response from the application.
         """
         if self.auth.is_valid_password(password):
-            return True, "Password Accepted."
-        return False, "Invalid Password: Must be at least 12 characters in length, have at least one lowercase, one uppercase, one special character, and one number!"
+            return True, VALIDITY_RESPONSE['PASSWORD']
+        return False, INVALIDITY_RESPONSE['PASSWORD']
 
     def app_user_mfa(self) -> Tuple[bool, Optional[str], str]:
         """
@@ -115,11 +139,11 @@ class Application:
         from the application.
         """
         if not self.user:
-            return False, None, "Missing User."
+            return False, None, INVALIDITY_RESPONSE['USER_MISSING']
         mfa, qr = self.auth.user_mfa(self.user)
         if mfa and qr:
-            return True, qr, "Multifactor Authentication Enabled."
-        return False, None, "Multifactor Authentication setup failed!"
+            return True, qr, VALIDITY_RESPONSE['MFA_SETUP']
+        return False, None, INVALIDITY_RESPONSE['MFA_SETUP']
 
     def app_validate_code(self, code: str) -> Tuple[bool, str]:
         """
@@ -128,11 +152,11 @@ class Application:
         - Returns: True if user entries are valid with a text response from the application.
         """
         if not self.user:
-            return False, "Missing User."
+            return False, INVALIDITY_RESPONSE['USER_MISSING']
         code, message = self.auth.verify_authentication_code(self.user, code)
         if code:
             self.set_view(ApplicationViews.main_view)
-            return True, "Code Accepted."
+            return True, VALIDITY_RESPONSE['CODE']
 
         self.set_view(ApplicationViews.mfa_verification_view)
         return False, message
@@ -146,9 +170,9 @@ class Application:
             self.user = None
             self.token = None
             self.set_view(ApplicationViews.login_view)
-            return True, "Account Logged Out."
+            return True, VALIDITY_RESPONSE['LOGOUT']
         
-        return False, "Error occurred trying to logout!"
+        return False, INVALIDITY_RESPONSE['LOGOUT']
 
     def is_logged_in(self) -> bool:
         """

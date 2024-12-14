@@ -7,6 +7,7 @@ import sqlite3
 import base64
 import re
 from src.totp_mfa import TOTPMFA, MultifactorDatabase
+from src.constants import DB_PATH, DB_TABLES, AUTH_SETTINGS
 
 
 class TOTPMFATests(unittest.TestCase):
@@ -64,7 +65,7 @@ class TOTPMFATests(unittest.TestCase):
         """
         self.mfa.generate_totp(self.test_email)
         # three failed verification attempts
-        for _ in range(self.mfa.INPUT_LIMIT):
+        for _ in range(AUTH_SETTINGS['MAX_LOGIN_ATTEMPTS']):
             self.mfa.validate_code(self.test_email, "000000")
             self.mfa.database.get_verification_attempts(self.test_email)
 
@@ -138,6 +139,24 @@ class MultifactorDatabaseTests(unittest.TestCase):
         valid_code = totp.now()
         self.assertTrue(self.mfa.validate_code(self.test_email, valid_code))
         self.assertEqual(self.mfa.database.get_verification_attempts(self.test_email), 0)
+
+    def test_valid_db_path(self):
+        """
+        Tests that the application is following the correct database path.
+        """
+        self.assertEqual(self.database.path, DB_PATH['MFA'])
+
+    def test_db_tables(self):
+        """
+        Tests that the database contains the correct tables.
+        """
+        with sqlite3.connect(self.database.path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = {row[0] for row in cursor.fetchall()}
+
+        self.assertIn(DB_TABLES['TOTP_SECRETS'], tables)
+        self.assertIn(DB_TABLES['VERIFICATION_ATTEMPTS'], tables)
 
     def tearDown(self):
         """

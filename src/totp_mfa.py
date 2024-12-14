@@ -9,6 +9,7 @@ import io
 import base64
 import secrets
 import string
+from .constants import DB_PATH, MFA_SETTINGS, AUTH_SETTINGS, DB_TABLES, INVALIDITY_RESPONSE
 
 
 class TOTPMFA:
@@ -17,16 +18,14 @@ class TOTPMFA:
     Multifactor Authentication software, that generates a QR verification code for a user.
     """
 
-    INPUT_LIMIT = 3
-    TIMEOUT = 60
-    VERIFICATION_WINDOW = 1
-
     def __init__(self):
         """
         Constructor for the TOTPMFA class - initializes the database.
         """
         self.database = MultifactorDatabase()
-        self.verification_window = self.VERIFICATION_WINDOW
+        self.verification_window = MFA_SETTINGS['VERIFICATION_WINDOW']
+        self.input_limit = AUTH_SETTINGS['MAX_LOGIN_ATTEMPTS']
+        self.timeout = AUTH_SETTINGS['LOGIN_TIMEOUT']
 
     def generate_totp(self, email: str) -> Tuple[str, str]:
         """
@@ -36,14 +35,14 @@ class TOTPMFA:
         """
         # throw an error if the user enters an email without an @ or . character
         if not '@' in email or not '.' in email:
-            raise ValueError("Invalid Format.")
+            raise ValueError(INVALIDITY_RESPONSE['EMAIL'])
         
         secret = pyotp.random_base32()
         totp = pyotp.TOTP(secret)
         # constructing a provisioning URI to host the totp QR code
         provisioning_uri = totp.provisioning_uri(name=email, issuer_name="MFA Simulator")
 
-        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4)
+        qr_code = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=MFA_SETTINGS['QR_CODE_SIZE'], border=MFA_SETTINGS['QR_CODE_BORDER_SIZE'])
         qr_code.add_data(provisioning_uri)
         qr_code.make(fit=True)
 
@@ -54,7 +53,7 @@ class TOTPMFA:
         # converts the generated QR code to a base64 string through the buffer
         base64_conversion = base64.b64encode(buffer.getvalue()).decode()
         if not self.database.store_secret(email, secret):
-            raise RuntimeError("Failed to store secret in database")
+            raise RuntimeError(INVALIDITY_RESPONSE['DATABASE'].format("Failed to store secret in database"))
 
         return secret, base64_conversion
     
@@ -100,17 +99,17 @@ class TOTPMFA:
         try:
             attempts = self.database.get_verification_attempts(email)
             # return true if the user's number of attempts is beyond the limit and time window
-            if attempts >= self.INPUT_LIMIT:
+            if attempts >= self.input_limit:
                 last_attempt = self.database.get_last_input_time(email)
                 if last_attempt is not None:
                     stopwatch = time.time() - last_attempt
-                    if stopwatch < self.TIMEOUT:
+                    if stopwatch < self.timeout:
                         return True
                     
                 self.database.delete_attempts(email) 
             return False
         except Exception as e:
-            print(f"Error occurred when user reached verification attempt limit: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def generate_new_totp(self, email: str) -> Tuple[str, str]:
@@ -128,7 +127,7 @@ class TOTPMFA:
         """
         # below 0 is invalid, reset the window size
         if (window < 0):
-            raise ValueError("Error occurred setting the verification window size: size cannot be negative.")
+            raise ValueError(INVALIDITY_RESPONSE['DATABASE'].format("Error occurred setting the verification window size: size cannot be negative."))
         self.verification_window = window
 
     def get_window(self) -> int:
@@ -150,7 +149,7 @@ class MultifactorDatabase:
         Constructor for the DatabaseServer class - setting up a path to a
         SQLite database.
         """
-        self.path: str = "db/secrets.db"
+        self.path: str = DB_PATH['MFA']
         self.create_mfa_tables()
 
     def store_secret(self, email: str, secret: str) -> bool:
@@ -163,14 +162,14 @@ class MultifactorDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT OR REPLACE INTO totp_secrets (email, secret)
+                cursor.execute(f"""
+                    INSERT OR REPLACE INTO {DB_TABLES['TOTP_SECRETS']} (email, secret)
                     VALUES (?, ?)
                 """, (email, secret))
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Database error in store_secret: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def get_secret(self, email: str) -> Optional[str]:
@@ -182,11 +181,11 @@ class MultifactorDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT secret FROM totp_secrets WHERE email = ?", (email,))
+                cursor.execute(f"SELECT secret FROM {DB_TABLES['TOTP_SECRETS']} WHERE email = ?", (email,))
                 key = cursor.fetchone()
                 return key[0] if key else None
         except sqlite3.Error as e:
-            print(f"Database error in get_secret: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return None
 
     def delete_secret(self, email: str) -> bool:
@@ -198,12 +197,12 @@ class MultifactorDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM totp_secrets WHERE email = ?", (email,))
+                cursor.execute(f"DELETE FROM {DB_TABLES['TOTP_SECRETS']} WHERE email = ?", (email,))
                 conn.commit()
                 deleted = cursor.rowcount > 0
                 return deleted
         except sqlite3.Error as e:
-            print(f"Database error in delete_secret: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def create_mfa_tables(self) -> None:
@@ -215,17 +214,17 @@ class MultifactorDatabase:
             with sqlite3.connect(self.path) as conn:
                 # storing generated secret keys
                 cursor = conn.cursor()
-                cursor.execute("DROP TABLE IF EXISTS verification_attempts")
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS totp_secrets (
+                cursor.execute(f"DROP TABLE IF EXISTS {DB_TABLES['VERIFICATION_ATTEMPTS']}")
+                cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {DB_TABLES['TOTP_SECRETS']} (
                         email TEXT PRIMARY KEY, 
                         secret TEXT NOT NULL, 
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
                 # storing verification attempts
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS verification_attempts (
+                cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {DB_TABLES['VERIFICATION_ATTEMPTS']} (
                         email TEXT PRIMARY KEY,
                         attempts INTEGER NOT NULL DEFAULT 0,
                         last_attempt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -233,7 +232,7 @@ class MultifactorDatabase:
                 """)
                 conn.commit()
         except sqlite3.Error as e:
-            print(f"Error Occurred Constructing Database Tables: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE_ERROR'].format(str(e)))
             raise
 
     def verification_attempts(self, email: str) -> bool:
@@ -246,23 +245,23 @@ class MultifactorDatabase:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
                 # store verification attempt
-                cursor.execute("""
-                    UPDATE verification_attempts
+                cursor.execute(f"""
+                    UPDATE {DB_TABLES['VERIFICATION_ATTEMPTS']}
                     SET attempts = COALESCE(attempts, 0) + 1,
                         last_attempt = CURRENT_TIMESTAMP
                     WHERE email = ?
                 """, (email,))
 
                 if cursor.rowcount == 0:
-                    cursor.execute("""
-                        INSERT INTO verification_attempts (email, attempts, last_attempt)
+                    cursor.execute(f"""
+                        INSERT INTO {DB_TABLES['VERIFICATION_ATTEMPTS']} (email, attempts, last_attempt)
                         VALUES (?, 1, CURRENT_TIMESTAMP)
                     """, (email,))
 
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Error occurred storing verification attempts in database: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def get_verification_attempts(self, email: str) -> int:
@@ -274,15 +273,15 @@ class MultifactorDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT attempts FROM verification_attempts 
+                cursor.execute(f"""
+                    SELECT attempts FROM {DB_TABLES['VERIFICATION_ATTEMPTS']} 
                     WHERE email = ?
                 """, (email,))
                 # retrieve the result of executing the sql query
                 attempts = cursor.fetchone()
                 return attempts[0] if attempts else 0
         except sqlite3.Error as e:
-            print(f"Error occurred retrieving verification attempts from database: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return 0
 
     def delete_attempts(self, email: str) -> bool:
@@ -294,11 +293,11 @@ class MultifactorDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("DELETE FROM verification_attempts WHERE email = ?", (email,))
+                cursor.execute(f"DELETE FROM {DB_TABLES['VERIFICATION_ATTEMPTS']} WHERE email = ?", (email,))
                 conn.commit()
                 return True
         except sqlite3.Error as e:
-            print(f"Error occurred clearing verification attempts in database: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def get_last_input_time(self, email: str) -> Optional[float]:
@@ -310,7 +309,7 @@ class MultifactorDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT last_attempt FROM verification_attempts WHERE email = ?", (email,))
+                cursor.execute(f"SELECT last_attempt FROM {DB_TABLES['VERIFICATION_ATTEMPTS']} WHERE email = ?", (email,))
                 attempt = cursor.fetchone()
                 # at most recent verification attempt, retrieve timestamp
                 if attempt and attempt[0]:
@@ -318,5 +317,5 @@ class MultifactorDatabase:
                     return input_time.timestamp()
                 return None
         except sqlite3.Error as e:
-            print(f"Error occurred retrieving most recent verification attempt: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return None

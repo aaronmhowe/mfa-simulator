@@ -5,6 +5,8 @@ import secrets
 import bcrypt
 import re
 from .totp_mfa import TOTPMFA
+from .constants import DB_PATH, DB_TABLES, AUTH_SETTINGS, INVALIDITY_RESPONSE, VALIDITY_RESPONSE
+
 
 class Authentication:
     """
@@ -49,7 +51,7 @@ class Authentication:
             stored = self.database.store_credentials(email, passwd)
             return stored
         except Exception as e:
-            print(f"Error occurred when trying to register account: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def login(self, email: str, password: str) -> Tuple[bool, Optional[str]]:
@@ -78,7 +80,7 @@ class Authentication:
                 match = bcrypt.checkpw(pw_bytes, stored)            
                 if match:
                     # identification token to attach to user while logged in
-                    token = secrets.token_urlsafe(32)
+                    token = secrets.token_urlsafe(AUTH_SETTINGS['TOKEN_SIZE'])
                     self.logged_in_accounts[token] = datetime.now()
                     return True, token
                 else:
@@ -86,11 +88,11 @@ class Authentication:
                     return False, None
                 
             except Exception as e:
-                print(f"Password verification error: {str(e)}")
+                print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
                 return False, None
 
         except Exception as e:
-            print(f"Error occurred on login attempt: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False, None
 
     def is_valid_email(self, email: str) -> bool:
@@ -109,7 +111,7 @@ class Authentication:
         special character, and at least one number.
         - Param: email [str] -> User's password.
         """
-        if len(password) < 12:
+        if len(password) < AUTH_SETTINGS['MIN_PASSWORD_LENGTH']:
             return False
         has_lowercase = bool(re.search(r'[a-z]', password))
         has_uppercase = bool(re.search(r'[A-Z]', password))
@@ -134,7 +136,7 @@ class Authentication:
             return False, None
         
         except Exception as e:
-            print(f"Error occurred setting up multifactor authentication: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False, None
 
     def verify_authentication_code(self, email: str, code: str) -> Tuple[bool, str]:
@@ -146,10 +148,10 @@ class Authentication:
         """
         try:
             if not self.mfa.validate_code(email, code):
-                return False, "Code Not Valid."
-            return True, "Code Accepted."
+                return False, INVALIDITY_RESPONSE['CODE']
+            return True, VALIDITY_RESPONSE['CODE']
         except Exception as e:
-            return False, f"Error ocurred while verifying code: {str(e)}"
+            return False, INVALIDITY_RESPONSE['DATABASE'].format(str(e))
 
     def is_active(self, token: str) -> bool:
         """
@@ -157,7 +159,10 @@ class Authentication:
         - Param: token [str] -> Token identification assigned to an account at login.
         - Return: True if an account is currently logged in.
         """
-        return token in self.logged_in_accounts
+        if token not in self.logged_in_accounts:
+            return False
+        
+        return True
     
     def logout(self, token: str) -> bool:
         """
@@ -184,7 +189,7 @@ class AuthenticationDatabase:
         """
         Constructor for the Authentication database - setting up a path to its sqlite database.
         """
-        self.path = "db/auth.db"
+        self.path = DB_PATH['AUTH']
         self.create_auth_tables()
 
     def store_credentials(self, email: str, passwd: bytes) -> bool:
@@ -198,15 +203,15 @@ class AuthenticationDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO users (email, passwd)
+                cursor.execute(f"""
+                    INSERT INTO {DB_TABLES['USERS']} (email, passwd)
                     VALUES (?, ?)
                 """, (email, passwd))
                 conn.commit()
                 result = cursor.rowcount > 0
                 return result
         except sqlite3.Error as e:
-            print(f"Error storing account credentials: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return False
 
     def get_credentials(self, email: str) -> Optional[Tuple[str, bytes]]:
@@ -218,8 +223,8 @@ class AuthenticationDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("""
-                    SELECT email, passwd FROM users 
+                cursor.execute(f"""
+                    SELECT email, passwd FROM {DB_TABLES['USERS']} 
                     WHERE email = ?
                 """, (email,))
                 result =  cursor.fetchone()
@@ -231,7 +236,7 @@ class AuthenticationDatabase:
 
                 return None
         except sqlite3.Error as e:
-            print(f"Error retrieving account credentials: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             return None
 
     def create_auth_tables(self):
@@ -241,15 +246,15 @@ class AuthenticationDatabase:
         try:
             with sqlite3.connect(self.path) as conn:
                 cursor = conn.cursor()
-                cursor.execute("DROP TABLE IF EXISTS users")
-                cursor.execute("""
-                    CREATE TABLE users (
+                cursor.execute(f"DROP TABLE IF EXISTS {DB_TABLES['USERS']}")
+                cursor.execute(f"""
+                    CREATE TABLE {DB_TABLES['USERS']} (
                         email TEXT PRIMARY KEY,
                         passwd BLOB NOT NULL
                     )
                 """)
                 conn.commit()
         except sqlite3.Error as e:
-            print(f"Error occurred while attempting to create sqlite database tables: {e}")
+            print(INVALIDITY_RESPONSE['DATABASE'].format(str(e)))
             raise
         

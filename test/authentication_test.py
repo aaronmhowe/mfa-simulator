@@ -4,6 +4,7 @@ import bcrypt
 import sqlite3
 from datetime import datetime, timedelta
 from src.authentication import Authentication, AuthenticationDatabase
+from src.constants import DB_PATH, DB_TABLES, AUTH_SETTINGS, VALIDITY_RESPONSE, INVALIDITY_RESPONSE
 
 class AuthenticationTests(unittest.TestCase):
     """
@@ -65,6 +66,7 @@ class AuthenticationTests(unittest.TestCase):
         authenticates, token = self.auth.login(self.test_email, self.test_password)
         self.assertTrue(authenticates)
         self.assertIsNotNone(token)
+        self.assertEqual(len(token), 43)
 
     def test_invalid_login(self):
         """
@@ -83,6 +85,15 @@ class AuthenticationTests(unittest.TestCase):
         self.assertTrue(mfa)
         self.assertIsNotNone(qr)
 
+    def test_auth_code(self):
+        """
+        Tests a successful response to an invalid authentication code.
+        """
+        self.auth.register_account(self.test_email, self.test_password)
+        code, response = self.auth.verify_authentication_code(self.test_email, "000000")
+        self.assertFalse(code)
+        self.assertEqual(response, INVALIDITY_RESPONSE['CODE'])
+
     def test_logout(self):
         """
         Tests that the user can successfully logout of their account.
@@ -97,7 +108,7 @@ class AuthenticationTests(unittest.TestCase):
         """
         with sqlite3.connect(self.auth.database.path) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM users WHERE email = ?", (self.test_email,))
+            cursor.execute(f"DELETE FROM {DB_TABLES['USERS']} WHERE email = ?", (self.test_email,))
             conn.commit()
 
 class AuthenticationDatabaseTests(unittest.TestCase):
