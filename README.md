@@ -47,6 +47,8 @@ https://pypi.org/project/qrcode/
 - Multi-factor Authentication: Programming Using Python: https://www.youtube.com/watch?v=C-jkO6coJkk 
 
 - How to Store Data with Python and SQLite3: https://www.youtube.com/watch?v=RZI-v-Z1W4c 
+
+- Tkinter - Switch Frames: https://www.youtube.com/watch?v=4hamShRNxgg 
 ### SQLite Python
 - Creating Tables: https://www.sqlitetutorial.net/sqlite-python/creating-tables/
 
@@ -57,3 +59,7 @@ https://pypi.org/project/qrcode/
 - Hashing Passwords in Python with BCrypt: https://www.geeksforgeeks.org/hashing-passwords-in-python-with-bcrypt/ 
 ### Constants in Python
 https://realpython.com/python-constants/ 
+### Python Tkinter
+https://www.geeksforgeeks.org/python-gui-tkinter/ 
+### TOTP Token Generator
+https://totp.danhersam.com/ 

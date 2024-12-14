@@ -23,8 +23,8 @@ AUTH_SETTINGS = {
 MFA_SETTINGS = {
     'CODE_LENGTH': 6,
     'VERIFICATION_WINDOW': 1,
-    'QR_CODE_SIZE': 10,
-    'QR_CODE_BORDER_SIZE': 4
+    'QR_CODE_SIZE': 20,
+    'QR_CODE_BORDER_SIZE': 2
 }
 
 VALIDITY_RESPONSE = {
@@ -60,9 +60,6 @@ VIEWS = {
     'MAIN': "Home Page",
     'LOGOUT': "Logging Out..."
 }
-
-LOG = "log/mfa_simulator.log"
-CONFIG = "config/config.ini"
 
 EMAIL_CONFIG = {
     'SMTP_SERVER': 'smtp.gmail.com',
