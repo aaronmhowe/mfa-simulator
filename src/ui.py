@@ -18,12 +18,12 @@ class UI:
         """
         self.root = tk.Tk()
         self.root.title("MFA Simulator")
-        self.root.geometry("1280x720")
+        self.root.geometry("1920x1080")
         win_width = self.root.winfo_screenwidth()
         win_height = self.root.winfo_screenheight()
-        width = (win_width - 1280) // 2
-        height = (win_height - 720) // 2
-        self.root.geometry(f"1280x720+{width}+{height}")
+        width = (win_width - 1980) // 2
+        height = (win_height - 1080) // 2
+        self.root.geometry(f"1920x1080+{width}+{height}")
         self.app = Application()
         self.frame = ttk.Frame(self.root)
         self.frame.pack(expand=True, fill='both', padx=20, pady=20)
